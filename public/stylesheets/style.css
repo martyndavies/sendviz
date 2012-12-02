@@ -25,6 +25,7 @@ h1 {
 	bottom: 0;
 	position: absolute;
 	z-index:-100;
+	text-align:center;
 }
 
 #photos {

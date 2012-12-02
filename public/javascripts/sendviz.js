@@ -11,6 +11,17 @@ $(document).ready(function(){
   headings[6] = "Dropped";
   headings[7] = "Spam Report";
 
+  var events = new Array();
+
+  events[0] = "processed";
+  events[1] = "deferred";
+  events[2] = "delivered";
+  events[3] = "open";
+  events[4] = "click";
+  events[5] = "bounced";
+  events[6] = "dropped";
+  events[7] = "spamreport";
+
   for (var i; i<headings.length; i++){
     localStorage.set(headings[i], "0");
   }
@@ -23,6 +34,10 @@ $(document).ready(function(){
     , click_count = 0
     , bounce_count = 0
     , dropped_count = 0;
+
+  var dataset = {
+    events: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+  };
 
   Pusher.log = function(message) {
     if (window.console && window.console.log) window.console.log(message);
@@ -43,6 +58,11 @@ $(document).ready(function(){
 
   function increment_score(eventType, amount){
     $("div#"+eventType).html(amount);
+    console.log ("Looking for "+eventType);
+    var event_id = events.indexOf(eventType);
+    dataset.events[event_id] = amount;
+    console.log("Changed ID: "+ dataset.events[event_id]+" to "+ amount);
+    change();
     //localStorage.set(eventType, amount);
     //doFlash(eventType);
   }
@@ -54,59 +74,46 @@ $(document).ready(function(){
 
   channel.bind('processed', function(data){
     processed_count++;
-    transition_graph(processed_count);
     increment_score(data.event_type, processed_count);
   });
 
   channel.bind('spamreport', function(data){
     spamreport_count++;
-    transition_graph(spamreport_count);
     increment_score(data.event_type, spamreport_count);
   });
 
   channel.bind('delivered', function(data){
     delivered_count++;
-    transition_graph(delivered_count);
     increment_score(data.event_type, delivered_count);
     addGravatar(data.email);
   });
 
   channel.bind('deferred', function(data){
     deferred_count++;
-    transition_graph(deferred_count);
     increment_score(data.event_type, deferred_count);
   });
 
   channel.bind('open', function(data){
     open_count++;
-    transition_graph(open_count);
     increment_score(data.event_type, open_count);
   });
 
   channel.bind('click', function(data){
     click_count++;
-    transition_graph(click_count);
     increment_score(data.event_type, click_count);
   });
 
   channel.bind('bounce', function(data){
     bounce_count++;
-    transition_graph(bounce_count);
     increment_score(data.event_type, bounce_count);
   });
 
   channel.bind('dropped', function(data){
     dropped_count++;
-    transition_graph(dropped_count);
     increment_score(data.event_type, dropped_count);
   });
 
   var window_width = $(window).width();
-  //var amount_of_li = Math.floor(window_width/80)+1;
-  //for (var i=0; i < amount_of_li; i++) {
-  //  $("#photo-strip").append("<li><img src='http://www.gravatar.com/avatar/d2fcf07e0aaeab2ec0ccc106851c4f96'/></li>");
-  //}
-
   var width_of_info_box = Math.floor(window_width/9)-10;
   for (var i=0; i < 8; i++) {
     var title_div = "<div class='event-header'>"+headings[i]+"</div>";
@@ -114,73 +121,50 @@ $(document).ready(function(){
     $("#info-boxes").append("<li class='info-box' id='"+headings[i]+"'style='width:"+width_of_info_box+"px;'>"+title_div+number_div+"</li>");
   }
 
-  //D3
-  var n = 9, // number of layers
-      m = 2000, // number of samples per layer
-      stack = d3.layout.stack().offset("zero"),
-      layers0 = stack(d3.range(n).map(function() { return bumpLayer(m); })),
-      layers1 = stack(d3.range(n).map(function() { return bumpLayer(m); }));
 
-  var width = $(window).width(), height = $(window).height()-200;
 
-  var x = d3.scale.linear()
-    .domain([0, m - 1])
-    .range([0, width]);
+  var width = 960,
+      height = 500,
+      radius = Math.min(width, height) / 2;
 
-  var y = d3.scale.linear()
-    .domain([0, d3.max(layers0.concat(layers1), function(layer) { return d3.max(layer, function(d) { return d.y0 + d.y; }); })])
-    .range([height, 0]);
+  var color = d3.scale.category10();
 
-  var color = d3.scale.linear()
-    .range(["#33ccff", "#006699"]);
+  var pie = d3.layout.pie()
+      .sort(null);
 
-  var area = d3.svg.area()
-    .x(function(d) { return x(d.x); })
-    .y0(function(d) { return y(d.y0); })
-    .y1(function(d) { return y(d.y0 + d.y); });
+  var arc = d3.svg.arc()
+      .innerRadius(radius - 100)
+      .outerRadius(radius - 20);
 
   var svg = d3.select("#graph").append("svg")
-    .attr("width", width)
-    .attr("height", height);
+      .attr("width", width)
+      .attr("height", height)
+      .append("g")
+      .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
 
-  svg.selectAll("path")
-    .data(layers0)
-    .enter().append("path")
-    .attr("d", area)
-    .style("fill", function() { return color(Math.random()); });
+  var path = svg.selectAll("path")
+      .data(pie(dataset.events))
+      .enter().append("path")
+      .attr("fill", function(d, i) { return color(i); })
+      .attr("d", arc)
+      .each(function(d) { this._current = d; }); // store the initial values
 
-  function transition() {
-    d3.selectAll("path")
-      .data(function() {
-        var d = layers1;
-        layers1 = layers0;
-        return layers0 = d;
-    })
-      .transition()
-      .duration(3000)
-      .attr("d", area);
+  function change() {
+    //clearTimeout(timeout);
+    console.log("Transitioning:" + dataset.events);
+    path = path.data(pie(dataset.events)); // update the data
+    path.transition().duration(750).attrTween("d", arcTween); // redraw the arcs
   }
 
-  function transition_graph(amount){
-
-  }
-
-  function bumpLayer(n) {
-
-    function bump(a) {
-      var x = 1 / (.1 + Math.random()),
-          y = 2 * Math.random() - .5,
-          z = 10 / (.1 + Math.random());
-      for (var i = 0; i < n; i++) {
-        var w = (i / n - y) * z;
-        a[i] += x * Math.exp(-w * w);
-      }
-    }
-
-    var a = [], i;
-    for (i = 0; i < n; ++i) a[i] = 0;
-    for (i = 0; i < 9; ++i) bump(a);
-    return a.map(function(d, i) { return {x: i, y: Math.max(0, d)}; });
+  // Store the displayed angles in _current.
+  // Then, interpolate from _current to the new angles.
+  // During the transition, _current is updated in-place by d3.interpolate.
+  function arcTween(a) {
+    var i = d3.interpolate(this._current, a);
+    this._current = i(0);
+    return function(t) {
+      return arc(i(t));
+    };
   }
 
 
