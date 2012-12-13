@@ -35,9 +35,22 @@ $(document).ready(function(){
     , bounce_count = 0
     , dropped_count = 0;
 
+  /*var dataset = {
+    events: [
+      {"label": events[0], "value": 0.1},
+      {"label": events[1], "value": 0.1},
+      {"label": events[2], "value": 0.1},
+      {"label": events[3], "value": 0.1},
+      {"label": events[4], "value": 0.1},
+      {"label": events[5], "value": 0.1},
+      {"label": events[6], "value": 0.1},
+      {"label": events[7], "value": 0.1}
+    ]
+  };*/
+
   var dataset = {
     events: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-  };
+  }
 
   Pusher.log = function(message) {
     if (window.console && window.console.log) window.console.log(message);

@@ -9,9 +9,9 @@ var express = require('express')
 
 
 var pusher = new Pusher({
-  appId: '32762',
-  key: '2b077135af8bee994bb3',
-  secret: '4c32bbaf9c1cec185903'
+  appId: process.env["PUSHER_APP_ID"],
+  key: process.env["PUSHER_APP_KEY"],
+  secret: process.env["PUSHER_APP_SECRET"]
 });
 
 var channel = 'sendviz';
